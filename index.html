@@ -39,7 +39,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .limits button.auto{background:var(--panel);color:var(--ink);border:2px dashed var(--muted);font:600 13px var(--body)}
 .limits button[aria-pressed="true"]{outline:3px solid var(--ok);outline-offset:2px}
 .wide{grid-column:1/-1}
-.diag{text-align:center;font-size:11px;color:var(--muted);opacity:.8;min-height:1em}
+.diag{font-size:11px;color:var(--muted);margin-top:8px}
 .tick{stroke-width:1.6;stroke-linecap:round}
 .tick.major{stroke-width:3.2}
 .tlabel{font:600 16px var(--display);text-anchor:middle;dominant-baseline:central;font-variant-numeric:tabular-nums}
@@ -50,10 +50,10 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .mode{fill:var(--muted);font:600 11px var(--body);text-anchor:middle;letter-spacing:.18em}
 .brand{fill:var(--glow);font:600 10px var(--display);text-anchor:middle;letter-spacing:.06em}
 .signt{fill:#111;font:700 17px var(--display);text-anchor:middle;dominant-baseline:central}
-.card{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--ok);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--ok);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .card.fine{border-left-color:var(--fine)} .card.clip{border-left-color:var(--clip)} .card.ban{border-left-color:var(--ban)}
 .head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.amount{font:700 38px/1 var(--display);font-variant-numeric:tabular-nums}
+.amount{font:700 26px/1 var(--display);font-variant-numeric:tabular-nums}
 .pill{font:600 13px var(--body);padding:4px 10px;border-radius:999px;background:var(--ok);color:#0c1116}
 .fine .pill{background:var(--fine)} .clip .pill{background:var(--clip)} .ban .pill{background:var(--ban);color:#fff}
 .sub{font-size:14px;color:var(--muted)}
@@ -71,6 +71,27 @@ input[type=range]{width:100%;accent-color:var(--ink)}
 .notice{font-size:13px;color:var(--ink);background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
 footer{font-size:12px;color:var(--muted);margin-top:auto}
 footer a{color:var(--muted)}
+.mapcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;padding-bottom:10px}
+.mapcard .road{padding:10px 12px 8px;font-size:18px}
+.map{position:relative;height:170px;overflow:hidden;background:#0a1018}
+.tile{position:absolute;left:0;top:0;width:256px;height:256px;max-width:none;pointer-events:none;-webkit-user-select:none;user-select:none}
+.me{position:absolute;left:50%;top:50%;width:0;height:0;z-index:5}
+.me::before{content:"";position:absolute;left:-8px;top:-12px;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:22px solid #fff;filter:drop-shadow(0 0 4px var(--glow))}
+.inc{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid #fff;background:var(--muted);z-index:4}
+.inc.m1{background:var(--fine)}.inc.m2{background:var(--clip)}.inc.m3{background:var(--ban)}
+.mapmsg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:12px;font-size:13px;color:var(--muted);z-index:6;pointer-events:none}
+.attr{position:absolute;right:6px;bottom:4px;font-size:10px;color:#dfe7ee;z-index:7;text-shadow:0 0 3px #000}
+.tline{padding:8px 12px 0;font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tline.dim{color:var(--muted);font-size:13px;padding-top:4px}
+.tline:empty{display:none}
+.chip{font:600 12px var(--body);padding:3px 9px;border-radius:999px;color:#06090d;background:var(--ok)}
+.chip.c1{background:var(--fine)}.chip.c2{background:var(--clip)}.chip.c3{background:var(--ban);color:#fff}
+.settings{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.settings summary{font:600 15px var(--body);cursor:pointer}
+.settings[open] summary{margin-bottom:10px}
+.keyrow{display:flex;gap:8px}
+input[type=password]{flex:1;min-width:0;font:500 15px var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 8px}
+#ttState{font-size:12px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -80,8 +101,6 @@ footer a{color:var(--muted)}
     <div class="status"><span class="dot" id="dot"></span><span id="statusText">Eksempel. GPS er ikke startet.</span></div>
     <button id="startBtn" type="button">Start GPS</button>
   </div>
-
-  <div class="road" id="road">Eksempel: byvej<small id="roadSub">Fartgrænse valgt manuelt</small></div>
 
   <div class="gauge">
     <svg id="gauge" viewBox="0 0 320 320" role="img" aria-label="Speedometer">
@@ -141,37 +160,53 @@ footer a{color:var(--muted)}
       </g>
     </svg>
     <div class="limits" id="limitMenu" hidden></div>
-    <div class="signnote" id="signNote"></div>
-    <div class="diag" id="diag"></div>
   </div>
 
   <section class="card" id="card" aria-live="polite">
-    <div class="head"><div class="amount" id="amount">0 kr.</div><div class="pill" id="pill">Ingen bøde</div></div>
-    <div class="sub" id="sub"></div>
-    <ul class="parts" id="parts"></ul>
-    <div class="next" id="next"></div>
+    <div class="amount" id="amount">0 kr.</div><div class="pill" id="pill">Ingen bøde</div>
+  </section>
+
+  <section class="mapcard" aria-label="Vej, kort og trafik">
+    <div class="road" id="road">Eksempel: byvej<small id="roadSub"></small></div>
+    <div class="map" id="map">
+      <div id="tiles"></div><div id="incs"></div>
+      <div class="me" id="me" hidden></div>
+      <div class="mapmsg" id="mapMsg"></div>
+      <span class="attr">© TomTom</span>
+    </div>
+    <div class="tline" id="trafficLine"></div>
+    <div class="tline dim" id="incLine"></div>
+    <div class="tline dim" id="signNote"></div>
   </section>
 
   <div class="notice" id="notice" hidden></div>
 
-  <div class="controls">
-    <label for="roadSel" class="wide">Vejtype
-      <select id="roadSel">
-        <option value="auto">Automatisk (vejdata)</option>
-        <option value="andet" selected>By- eller landevej</option>
-        <option value="motortrafikvej">Motortrafikvej</option>
-        <option value="motorvej">Motorvej</option>
-      </select>
-    </label>
-    <label class="check" for="workChk"><input type="checkbox" id="workChk"> Vejarbejde med nedsat fartgrænse (dobbelt bøde)</label>
-    <label class="manual" id="manualWrap" for="speedRange">Fart uden GPS: træk for at prøve
-      <input type="range" id="speedRange" min="0" max="220" step="1" value="64">
-    </label>
-  </div>
+  <details class="settings" id="settings" open>
+    <summary>Indstillinger</summary>
+    <div class="controls">
+      <label for="ttKey" class="wide">TomTom-nøgle (gemmes kun på denne telefon)
+        <span class="keyrow"><input type="password" id="ttKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Indsæt din API-nøgle"><button type="button" id="ttSave">Gem</button></span>
+        <span id="ttState"></span>
+      </label>
+      <label for="roadSel" class="wide">Vejtype
+        <select id="roadSel">
+          <option value="auto">Automatisk (vejdata)</option>
+          <option value="andet" selected>By- eller landevej</option>
+          <option value="motortrafikvej">Motortrafikvej</option>
+          <option value="motorvej">Motorvej</option>
+        </select>
+      </label>
+      <label class="check" for="workChk"><input type="checkbox" id="workChk"> Vejarbejde med nedsat fartgrænse (dobbelt bøde)</label>
+      <label class="manual" id="manualWrap" for="speedRange">Fart uden GPS: træk for at prøve
+        <input type="range" id="speedRange" min="0" max="220" step="1" value="64">
+      </label>
+    </div>
+    <div class="diag" id="diag"></div>
+  </details>
 
   <footer>
     Vejledende bødetakster for personbil efter Rigsadvokatens tabel. GPS-fart og fartgrænser fra kortdata kan afvige fra skiltningen, som altid gælder. Sæt telefonen i en holder og betjen den ikke under kørslen.
-    Vejdata © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-bidragydere</a>.
+    Kort, trafik og fartgrænser © TomTom. Vejdata © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-bidragydere</a>.
   </footer>
 </main>
 
@@ -268,8 +303,8 @@ function matchRoad(ways,p,opt){
 <script>
 const $=id=>document.getElementById(id);
 const kr=n=>n.toLocaleString('da-DK')+' kr.';
-const LABEL={ok:'Ingen bøde',fine:'Bøde uden klip',clip:'Bøde og 1 klip',ban:'Betinget frakendelse',reckless:'Ubetinget frakendelse'};
-const state={speed:64,gps:false,autoLimit:null,autoRoad:null,est:false,src:'',roadName:null,rawName:null,wayId:null,heading:null,matchD:0,hw:'',lostAt:0,ov:null,ovBase:null};
+const LABEL={ok:'Ingen bøde',fine:'Bøde uden klip',clip:'Bøde og klip',ban:'Betinget frakendelse',reckless:'Ubetinget frakendelse'};
+const state={speed:64,gps:false,autoLimit:null,autoRoad:null,est:false,src:'',roadName:null,rawName:null,wayId:null,heading:null,matchD:0,hw:'',lostAt:0,ov:null,ovBase:null,osmLimit:null,osmEst:false,osmSrc:''};
 
 function limit(){return state.ov!=null?state.ov:(state.autoLimit||50);}
 function roadType(){const s=$('roadSel').value;return s==='auto'?(state.autoRoad||'andet'):s;}
@@ -315,37 +350,26 @@ function render(){
   $('needle').style.color=sp<=L?'var(--ok)':sp<=c1?'var(--fine)':sp<=banAt?'var(--clip)':'var(--ban)';
   $('signT').textContent=L;
   const auto=state.ov==null;
-  $('signNote').textContent='Fartgrænse: '+(auto?(state.autoLimit?state.src:'ukendt, 50 antaget'):'valgt manuelt, indtil GPS finder en ny grænse');
+  $('signNote').textContent='Fartgrænse '+L+' km/t: '+(auto?(state.autoLimit?state.src:'ukendt, 50 antaget'):'valgt manuelt, indtil GPS finder en ny grænse');
   document.querySelectorAll('#limitMenu button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===(auto?'auto':String(state.ov)))));
   let dg='';
   if(state.gps){
-    if(!cache.center) dg='Henter vejdata …';
-    else dg=`Vejdata: ${cache.ways.length} veje, hentet for ${Math.round((Date.now()-cache.at)/1000)} s siden. `+(state.wayId?`Match: ${state.hw}, ${Math.round(state.matchD)} m fra vejens midte.`:'Ingen vej inden for rækkevidde.');
+    if(!cache.center) dg='Henter vejdata fra OpenStreetMap …';
+    else dg=`OpenStreetMap: ${cache.ways.length} veje, hentet for ${Math.round((Date.now()-cache.at)/1000)} s siden. `+(state.wayId?`Match: ${state.hw}, ${Math.round(state.matchD)} m fra vejens midte.`:'Ingen vej inden for rækkevidde.');
+    dg+=tt.key?` TomTom: ${tt.err?'fejl, '+tt.err:'ok'}${tt.limit?', grænse '+tt.limit:', ingen grænse for vejen'}.`:' TomTom: ingen nøgle.';
   }
   $('diag').textContent=dg;
-  const card=$('card');card.className='card'+(f.level==='ok'?'':f.level==='fine'?' fine':f.level==='clip'?' clip':' ban');
+  $('card').className='card'+(f.level==='ok'?'':f.level==='fine'?' fine':f.level==='clip'?' clip':' ban');
   $('pill').textContent=LABEL[f.level];
-  if(f.level==='reckless'){
-    $('amount').textContent='Fængsel';
-    $('sub').textContent=`${f.pct} % over grænsen. Bødetaksten gælder som udgangspunkt ikke: vanvidskørsel straffes med fængsel, ubetinget frakendelse og mulig konfiskation af bilen.`;
-    $('parts').innerHTML='';
-  }else{
-    $('amount').textContent=kr(f.total);
-    $('sub').textContent=f.level==='ok'?`Du kører ${L-f.v>=0?L-f.v:0} km/t under grænsen på ${L} km/t.`:`${f.over} km/t og ${f.pct} % over grænsen på ${L} km/t.`;
-    $('parts').innerHTML=f.parts.map(p=>`<li><span>${p[0]}</span><span>${kr(p[1])}</span></li>`).join('');
-  }
-  let nx='';
-  for(let u=f.v+1;u<=f.v+140;u++){
-    const g=calcFine(u,L,road,work);
-    if(g.level!==f.level||g.total!==f.total){
-      nx=g.level==='reckless'?`Fra ${u} km/t: vanvidskørsel.`:`Fra ${u} km/t: ${kr(g.total)} · ${LABEL[g.level].toLowerCase()}.`;break;
-    }
-  }
-  $('next').textContent=nx;
+  $('amount').textContent=f.level==='reckless'?'Fængsel':kr(f.total);
   const names={motorvej:'Motorvej',motortrafikvej:'Motortrafikvej',andet:'By- eller landevej'};
-  if(state.gps&&state.roadName){$('road').firstChild.textContent=state.roadName;$('roadSub').textContent=names[road];}
-  else if(state.gps){$('road').firstChild.textContent='Vej ikke fundet';$('roadSub').textContent=names[road]+'. Vælg selv fartgrænse, hvis den er forkert.';}
+  const nm=state.roadName||tt.street;
+  if(state.gps&&nm){$('road').firstChild.textContent=nm;$('roadSub').textContent=names[road];}
+  else if(state.gps){$('road').firstChild.textContent='Vej ikke fundet';$('roadSub').textContent='Tryk på skiltet i måleren for at vælge fartgrænse';}
   else{$('road').firstChild.textContent='Eksempel: '+names[road].toLowerCase();$('roadSub').textContent='Tryk på skiltet i måleren for at vælge fartgrænse';}
+  $('ttState').textContent=tt.key?(tt.err?'TomTom svarer ikke: '+tt.err+'.':'Nøglen er gemt.'):'Ingen nøgle gemt.';
+  renderTraffic();
+  drawMap(state.gps?lastFix:null);
 }
 
 /* ---------- vejdata (OpenStreetMap via Overpass) ---------- */
@@ -377,19 +401,159 @@ async function fetchRoads(p){
   render();
 }
 function updateRoad(p){
-  if(!cache.center) return;
+  if(!cache.center){refreshAuto();return;}
   const m=matchRoad(cache.ways,p,{heading:state.heading,acc:p.acc,curId:state.wayId,curName:state.rawName});
   if(m.best){
     const t=m.best.w.tags,L=limitFor(t,m.best.fwd,m.urban);
-    state.wayId=m.best.w.id;state.autoLimit=L.limit;state.est=L.est;state.src=L.src;
+    state.wayId=m.best.w.id;state.osmLimit=L.limit;state.osmEst=L.est;state.osmSrc=L.src+' (OpenStreetMap)';
     state.autoRoad=roadClass(t);state.rawName=roadName(t);state.roadName=state.rawName||'Vej uden navn';
     state.matchD=m.best.d;state.hw=t.highway;state.lostAt=0;
-    // Manuelt valg gælder, indtil kortdata melder en anden grænse end den, der gjaldt, da du valgte.
-    if(state.ov!=null&&L.limit!==state.ovBase){state.ov=null;state.ovBase=null;}
   }else{
     if(!state.lostAt) state.lostAt=Date.now();
-    if(Date.now()-state.lostAt>6000){state.wayId=null;state.roadName=null;state.rawName=null;state.autoLimit=null;state.autoRoad=null;}
+    if(Date.now()-state.lostAt>6000){state.wayId=null;state.roadName=null;state.rawName=null;state.osmLimit=null;state.autoRoad=null;}
   }
+  refreshAuto();
+}
+// Vælger den automatiske grænse: TomTom først, ellers OpenStreetMap. Rydder et manuelt valg, når grænsen skifter.
+function refreshAuto(){
+  let lim=null,est=false,src='';
+  const p=lastFix;
+  const ttOk=tt.key&&tt.limit&&p&&tt.limitPos&&Date.now()-tt.limitAt<45000&&meters(tt.limitPos,p)<500;
+  if(ttOk){lim=tt.limit;src='fra TomTom';}
+  else if(state.osmLimit){lim=state.osmLimit;est=state.osmEst;src=state.osmSrc;}
+  state.autoLimit=lim;state.est=est;state.src=src;
+  if(state.ov!=null&&lim!=null&&lim!==state.ovBase){state.ov=null;state.ovBase=null;}
+}
+
+/* ---------- TomTom: fartgrænse, trafik og kort ---------- */
+const tt={key:'',limit:null,limitAt:0,limitPos:null,limitName:null,street:'',revBusy:false,revTry:0,
+  flow:null,flowAt:0,flowBusy:false,flowTry:0,inc:[],incAt:0,incPos:null,incBusy:false,incTry:0,err:'',tileErr:false};
+try{tt.key=localStorage.getItem('benfi_tt_key')||'';}catch(e){}
+async function ttJson(url){
+  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),10000);
+  try{
+    const r=await fetch(url,{signal:ctl.signal});
+    if(!r.ok) throw new Error(r.status===403?'nøglen blev afvist eller kvoten er brugt (HTTP 403)':'HTTP '+r.status);
+    return await r.json();
+  }catch(e){throw new Error(e.name==='AbortError'?'tidsfrist overskredet':e.message||'ingen forbindelse');}
+  finally{clearTimeout(to);}
+}
+function ttTick(p){
+  if(!tt.key) return;
+  const now=Date.now(),newRoad=state.rawName!==tt.limitName;
+  if(!tt.revBusy&&now-tt.revTry>(newRoad?3000:15000)&&(newRoad||!tt.limitPos||meters(tt.limitPos,p)>200)) ttLimit(p);
+  if(!tt.flowBusy&&now-tt.flowTry>60000) ttFlow(p);
+  if(!tt.incBusy&&now-tt.incTry>30000&&(!tt.incPos||meters(tt.incPos,p)>4000||now-tt.incAt>600000)) ttInc(p);
+}
+async function ttLimit(p){
+  tt.revBusy=true;tt.revTry=Date.now();const name=state.rawName;
+  try{
+    const h=state.heading!=null?`&heading=${Math.round(state.heading)}`:'';
+    const d=await ttJson(`https://api.tomtom.com/search/2/reverseGeocode/${p.lat.toFixed(6)},${p.lon.toFixed(6)}.json?key=${encodeURIComponent(tt.key)}&returnSpeedLimit=true&radius=60${h}`);
+    const a=d.addresses&&d.addresses[0]&&d.addresses[0].address;
+    const m=a&&a.speedLimit&&String(a.speedLimit).match(/([\d.]+)\s*(KPH|MPH)/i);
+    tt.limit=m?Math.round(m[2].toUpperCase()==='MPH'?m[1]*1.609344:+m[1]):null;
+    tt.street=a&&a.streetName?String(a.streetName):'';
+    tt.limitAt=Date.now();tt.limitPos=p;tt.err='';
+  }catch(e){tt.err=e.message;}
+  tt.limitName=name;tt.revBusy=false;refreshAuto();render();
+}
+async function ttFlow(p){
+  tt.flowBusy=true;tt.flowTry=Date.now();
+  try{
+    const d=await ttJson(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/12/json?key=${encodeURIComponent(tt.key)}&point=${p.lat.toFixed(6)},${p.lon.toFixed(6)}&unit=KMPH`);
+    const f=d.flowSegmentData;
+    tt.flow=f?{cur:Math.round(+f.currentSpeed),free:Math.round(+f.freeFlowSpeed),closed:!!f.roadClosure}:null;
+    tt.flowAt=Date.now();tt.err='';
+  }catch(e){tt.err=e.message;}
+  tt.flowBusy=false;render();
+}
+const INC_NAME={1:'Uheld',2:'Tåge',3:'Farlige forhold',4:'Regn',5:'Is',6:'Kø',7:'Spærret vognbane',8:'Vejen er spærret',9:'Vejarbejde',10:'Kraftig vind',11:'Oversvømmelse',14:'Havareret køretøj'};
+async function ttInc(p){
+  tt.incBusy=true;tt.incTry=Date.now();
+  try{
+    const bbox=[p.lon-0.12,p.lat-0.07,p.lon+0.12,p.lat+0.07].map(v=>v.toFixed(5)).join(',');
+    const fields=encodeURIComponent('{incidents{type,geometry{type,coordinates},properties{iconCategory,magnitudeOfDelay,delay}}}');
+    const d=await ttJson(`https://api.tomtom.com/traffic/services/5/incidentDetails?key=${encodeURIComponent(tt.key)}&bbox=${bbox}&fields=${fields}&timeValidityFilter=present`);
+    tt.inc=(d.incidents||[]).map(i=>{
+      const g=i.geometry||{},pr=i.properties||{};
+      const pts=(g.type==='Point'?[g.coordinates]:(g.coordinates||[])).filter(c=>Array.isArray(c)&&c.length>=2).map(c=>({lon:+c[0],lat:+c[1]}));
+      return pts.length?{pts,cat:+pr.iconCategory||0,mag:+pr.magnitudeOfDelay||0,delay:+pr.delay||0}:null;
+    }).filter(Boolean);
+    tt.incAt=Date.now();tt.incPos=p;tt.err='';
+  }catch(e){tt.err=e.message;}
+  tt.incBusy=false;render();
+}
+function nearestIncident(p){
+  let best=null;
+  for(const i of tt.inc){
+    let d=1e9,at=null;
+    for(const q of i.pts){const m=meters(p,q);if(m<d){d=m;at=q;}}
+    if(d>6000) continue;
+    const ahead=state.heading==null||d<150||angDiff(state.heading,bearing(p,at))<75;
+    if(!ahead) continue;
+    if(!best||d<best.d) best={i,d};
+  }
+  return best;
+}
+function renderTraffic(){
+  const tl=$('trafficLine'),il=$('incLine');il.textContent='';
+  if(!tt.key){tl.textContent='Indtast din TomTom-nøgle under Indstillinger for at få kort, trafik og fartgrænser fra TomTom.';return;}
+  if(!state.gps){tl.textContent='Trafik og kort starter sammen med GPS.';return;}
+  if(tt.flow&&Date.now()-tt.flowAt<180000){
+    const f=tt.flow,r=f.free>0?f.cur/f.free:1;
+    const lvl=f.closed?3:r>=0.85?0:r>=0.6?1:r>=0.35?2:3;
+    const label=f.closed?'Vejen er spærret':['Fri bane','Tæt trafik','Langsom trafik','Kø'][lvl];
+    tl.innerHTML=`<span class="chip c${lvl}">${label}</span> <span>Trafikken kører ${f.cur} km/t, normalt ${f.free} km/t</span>`;
+  }else tl.textContent=tt.err?`TomTom svarer ikke: ${tt.err}.`:'Henter trafik …';
+  const n=lastFix?nearestIncident(lastFix):null;
+  if(n){
+    const dist=n.d<950?`${Math.round(n.d/50)*50} m`:`${(n.d/1000).toFixed(1).replace('.',',')} km`;
+    il.textContent=`${INC_NAME[n.i.cat]||'Hændelse'} ${n.d<150?'her':'om '+dist}`+(n.i.delay>=60?` · forsinkelse ${Math.round(n.i.delay/60)} min`:'');
+  }else if(tt.incAt) il.textContent='Ingen hændelser forude inden for 6 km.';
+}
+
+/* ---------- lille kort (TomTom-fliser, ingen bibliotek) ---------- */
+const MZ=14,TS=256,tileEls=new Map();
+function proj(lat,lon){
+  const n=2**MZ*TS,s=Math.sin(lat*Math.PI/180);
+  return [(lon+180)/360*n,(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n];
+}
+function drawMap(p){
+  const msg=$('mapMsg');
+  if(!tt.key){msg.textContent='Kortet kræver en TomTom-nøgle.';return;}
+  if(!p){msg.textContent='Kortet starter sammen med GPS.';return;}
+  msg.textContent=tt.tileErr?'Kortet kunne ikke hentes. Tjek TomTom-nøglen under Indstillinger.':'';
+  const el=$('map'),W=el.clientWidth,H=el.clientHeight,[cx,cy]=proj(p.lat,p.lon),x0=cx-W/2,y0=cy-H/2;
+  const k=encodeURIComponent(tt.key),bucket=Math.floor(Date.now()/120000),keep=new Set();
+  for(let tx=Math.floor(x0/TS);tx<=Math.floor((x0+W)/TS);tx++){
+    for(let ty=Math.floor(y0/TS);ty<=Math.floor((y0+H)/TS);ty++){
+      for(const layer of ['b','f']){
+        const id=layer==='b'?`b/${tx}/${ty}`:`f/${tx}/${ty}/${bucket}`;keep.add(id);
+        let img=tileEls.get(id);
+        if(!img){
+          img=new Image();img.className='tile';img.alt='';img.style.zIndex=layer==='b'?1:2;
+          img.onerror=()=>{if(layer==='b'){tt.tileErr=true;}img.remove();};
+          img.onload=()=>{if(layer==='b') tt.tileErr=false;};
+          img.src=layer==='b'
+            ?`https://api.tomtom.com/map/1/tile/basic/night/${MZ}/${tx}/${ty}.png?key=${k}`
+            :`https://api.tomtom.com/traffic/map/4/tile/flow/relative0-dark/${MZ}/${tx}/${ty}.png?key=${k}&tileSize=512&t=${bucket}`;
+          $('tiles').appendChild(img);tileEls.set(id,img);
+        }
+        img.style.transform=`translate(${Math.round(tx*TS-x0)}px,${Math.round(ty*TS-y0)}px)`;
+      }
+    }
+  }
+  for(const [id,img] of tileEls){if(!keep.has(id)){img.remove();tileEls.delete(id);}}
+  let dots='';
+  for(const i of tt.inc){
+    const [ix,iy]=proj(i.pts[0].lat,i.pts[0].lon),x=ix-x0,y=iy-y0;
+    if(x<-8||y<-8||x>W+8||y>H+8) continue;
+    dots+=`<span class="inc m${Math.min(4,Math.max(0,i.mag))}" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px"></span>`;
+  }
+  $('incs').innerHTML=dots;
+  $('me').style.transform=`rotate(${state.heading==null?0:Math.round(state.heading)}deg)`;
+  $('me').hidden=false;
 }
 
 /* ---------- GPS ---------- */
@@ -404,7 +568,7 @@ function onFix(pos){
   lastFix=p;
   if(!state.gps){
     state.gps=true;$('manualWrap').hidden=true;note('');
-    $('roadSel').value='auto';$('startBtn').hidden=true;
+    $('roadSel').value='auto';$('startBtn').hidden=true;$('settings').open=false;
   }
   if(kmh!=null){const s=0.65*kmh+0.35*state.speed;state.speed=s<1.5?0:s;}
   setStatus('live',`Live GPS · nøjagtighed ±${Math.round(c.accuracy)} m`);
@@ -415,6 +579,7 @@ function onFix(pos){
   const now=Date.now();
   if(now-fetchTry>5000&&(!cache.center||meters(cache.center,p)>cache.r*0.45||now-cache.at>600000)) fetchRoads(p);
   updateRoad(p);
+  ttTick(p);
   render();
 }
 function onErr(e){
@@ -433,6 +598,15 @@ $('startBtn').addEventListener('click',()=>{
     watchId=navigator.geolocation.watchPosition(onFix,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
   }catch(e){onErr({code:1});}
   try{if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(()=>{});}catch(e){}
+});
+/* ---------- TomTom-nøgle ---------- */
+$('ttKey').value=tt.key;
+$('ttSave').addEventListener('click',()=>{
+  tt.key=$('ttKey').value.trim();
+  try{if(tt.key) localStorage.setItem('benfi_tt_key',tt.key); else localStorage.removeItem('benfi_tt_key');}catch(e){}
+  Object.assign(tt,{limit:null,limitPos:null,limitName:null,flow:null,inc:[],incPos:null,incAt:0,revTry:0,flowTry:0,incTry:0,err:'',tileErr:false});
+  for(const [id,img] of tileEls){img.remove();tileEls.delete(id);}
+  refreshAuto();if(lastFix) ttTick(lastFix);render();
 });
 /* ---------- manuel fartgrænse ---------- */
 $('limitMenu').innerHTML='<button type="button" class="auto" data-v="auto">Auto</button>'+[30,40,50,60,70,80,90,100,110,120,130].map(v=>`<button type="button" data-v="${v}" aria-label="${v} km/t">${v}</button>`).join('');
