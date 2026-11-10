@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fartmåler med bødetakst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: én kolonne som et instrumentbræt: status, måler, bødekort, indstillinger. Ét mørkt tema med vilje. */
+  color-scheme: dark;
+  --bg:#10161d; --panel:#18212b; --line:#2b3745; --ink:#eaf0f5; --muted:#8d9bab;
+  --sign:#d5202b;
+  --ok:#4fd1b5; --fine:#f2b84b; --clip:#ff8a3d; --ban:#ff4d5e;
+  --display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.35}
+main{max-width:460px;margin:0 auto;padding:14px 16px 20px;display:flex;flex-direction:column;gap:12px;min-height:100%}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.status{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.dot.live{background:var(--ok)} .dot.err{background:var(--ban)} .dot.wait{background:var(--fine)}
+button{font:600 15px var(--body);color:var(--bg);background:var(--ink);border:0;border-radius:8px;padding:9px 14px;cursor:pointer;flex:none}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+.road{font:600 20px/1.2 var(--display);letter-spacing:.01em;overflow-wrap:anywhere}
+.road small{display:block;font:400 13px var(--body);color:var(--muted);margin-top:2px}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:4px}
+.gauge svg{display:block;width:100%;max-width:380px;height:auto}
+.signnote{text-align:center;font-size:12px;color:var(--muted)}
+.tick{stroke:#3a4757;stroke-width:1.5}
+.tick.major{stroke:var(--ink);stroke-width:2.5}
+.tlabel{font:600 19px var(--display);text-anchor:middle;dominant-baseline:central;font-variant-numeric:tabular-nums}
+#needle{transition:transform .35s ease-out,color .2s;transform-origin:160px 160px;color:var(--ok)}
+@media (prefers-reduced-motion:reduce){#needle{transition:none}}
+.num{fill:#fff;font:700 54px var(--display);text-anchor:middle;font-variant-numeric:tabular-nums}
+.unit{fill:var(--muted);font:500 13px var(--body);text-anchor:middle;letter-spacing:.04em}
+.mode{fill:var(--muted);font:600 11px var(--body);text-anchor:middle;letter-spacing:.18em}
+.signt{fill:#111;font:700 19px var(--display);text-anchor:middle;dominant-baseline:central}
+.card{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--ok);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.card.fine{border-left-color:var(--fine)} .card.clip{border-left-color:var(--clip)} .card.ban{border-left-color:var(--ban)}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.amount{font:700 38px/1 var(--display);font-variant-numeric:tabular-nums}
+.pill{font:600 13px var(--body);padding:4px 10px;border-radius:999px;background:var(--ok);color:#0c1116}
+.fine .pill{background:var(--fine)} .clip .pill{background:var(--clip)} .ban .pill{background:var(--ban);color:#fff}
+.sub{font-size:14px;color:var(--muted)}
+.parts{list-style:none;margin:0;padding:0;font-size:14px;display:flex;flex-direction:column;gap:3px}
+.parts li{display:flex;justify-content:space-between;gap:12px}
+.parts span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.next{font-size:14px;border-top:1px solid var(--line);padding-top:8px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+select{font:500 15px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 8px;width:100%}
+.check{grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;font-size:14px;color:var(--ink)}
+.check input{width:18px;height:18px;accent-color:var(--fine)}
+.manual{grid-column:1/-1}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.notice{font-size:13px;color:var(--ink);background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
+footer{font-size:12px;color:var(--muted);margin-top:auto}
+footer a{color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">Eksempel. GPS er ikke startet.</span></div>
+    <button id="startBtn" type="button">Start GPS</button>
+  </div>
+
+  <div class="road" id="road">Eksempel: byvej<small id="roadSub">Fartgrænse valgt manuelt</small></div>
+
+  <div class="gauge">
+    <svg id="gauge" viewBox="0 0 320 320" role="img" aria-label="Speedometer">
+      <defs>
+        <radialGradient id="gBezel" cx="50%" cy="38%" r="65%">
+          <stop offset="0.82" stop-color="#1c2531"/><stop offset="0.93" stop-color="#3a4656"/><stop offset="1" stop-color="#0a0e13"/>
+        </radialGradient>
+        <radialGradient id="gFace" cx="50%" cy="45%" r="60%">
+          <stop offset="0" stop-color="#161e28"/><stop offset="1" stop-color="#070a0e"/>
+        </radialGradient>
+        <radialGradient id="gHub" cx="50%" cy="35%" r="75%">
+          <stop offset="0" stop-color="#222c39"/><stop offset="1" stop-color="#0b0f14"/>
+        </radialGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <circle cx="160" cy="160" r="158" fill="url(#gBezel)"/>
+      <circle cx="160" cy="160" r="144" fill="url(#gFace)" stroke="#05070a" stroke-width="2"/>
+      <g id="zones"></g><g id="ticks"></g>
+      <g id="needle"><line x1="160" y1="88" x2="160" y2="24" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" filter="url(#glow)"/></g>
+      <circle cx="160" cy="160" r="68" fill="url(#gHub)" stroke="#33404f" stroke-width="1.5"/>
+      <text class="mode" x="160" y="124" id="mode">DEMO</text>
+      <text class="num" x="160" y="178" id="num">64</text>
+      <text class="unit" x="160" y="200">km/t</text>
+      <circle cx="160" cy="266" r="19" fill="#fff" stroke="#d5202b" stroke-width="6" id="signC"/>
+      <text class="signt" x="160" y="267" id="signT">50</text>
+    </svg>
+    <div class="signnote" id="signNote"></div>
+  </div>
+
+  <section class="card" id="card" aria-live="polite">
+    <div class="head"><div class="amount" id="amount">0 kr.</div><div class="pill" id="pill">Ingen bøde</div></div>
+    <div class="sub" id="sub"></div>
+    <ul class="parts" id="parts"></ul>
+    <div class="next" id="next"></div>
+  </section>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <div class="controls">
+    <label for="limitSel">Fartgrænse
+      <select id="limitSel">
+        <option value="auto">Automatisk (vejdata)</option>
+        <option>30</option><option>40</option><option>45</option><option selected>50</option><option>60</option><option>70</option>
+        <option>80</option><option>90</option><option>100</option><option>110</option><option>120</option><option>130</option>
+      </select>
+    </label>
+    <label for="roadSel">Vejtype
+      <select id="roadSel">
+        <option value="auto">Automatisk (vejdata)</option>
+        <option value="andet" selected>By- eller landevej</option>
+        <option value="motortrafikvej">Motortrafikvej</option>
+        <option value="motorvej">Motorvej</option>
+      </select>
+    </label>
+    <label class="check" for="workChk"><input type="checkbox" id="workChk"> Vejarbejde med nedsat fartgrænse (dobbelt bøde)</label>
+    <label class="manual" id="manualWrap" for="speedRange">Fart uden GPS: træk for at prøve
+      <input type="range" id="speedRange" min="0" max="220" step="1" value="64">
+    </label>
+  </div>
+
+  <footer>
+    Vejledende bødetakster for personbil efter Rigsadvokatens tabel. GPS-fart og fartgrænser fra kortdata kan afvige fra skiltningen, som altid gælder. Sæt telefonen i en holder og betjen den ikke under kørslen.
+    Vejdata © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-bidragydere</a>.
+  </footer>
+</main>
+
+<script id="logic">
+// Rigsadvokatens vejledende takster (personbil). Indeks = hele tiere af procent over grænsen.
+const T1=[1200,1200,1800,1800,2400,2400,3000,3600,4200,5400,6000];   // uden for motorvej, og motorvej under 100
+const T2=[1200,1200,1800,2400,3000,3600,4200,5400,6000,7800,9000];   // motorvej 100+ og motortrafikvej 100
+function calcFine(speed,L,road,work){
+  const v=Math.floor(speed);
+  if(!L||v<=L) return {v,over:0,pct:0,level:'ok',total:0,parts:[]};
+  const over=v-L, b=Math.min(10,Math.floor(over*10/L));
+  const high=(road==='motorvej'&&L>=100)||(road==='motortrafikvej'&&L===100);
+  const parts=[['Grundtakst',(high?T2:T1)[b]]];
+  if(b>=3&&road!=='motorvej'&&!high) parts.push(['Tillæg ved 30 % eller mere',1200]);
+  if(v>=140) parts.push(['Højhastighedstillæg',1200+600*Math.floor((v-140)/10)]);
+  let fine=parts.reduce((s,p)=>s+p[1],0);
+  if(work){parts.push(['Vejarbejde: dobbelt takst',fine]);fine*=2;}
+  let level='fine';
+  if(v>=200||(v>100&&over>L)) level='reckless';
+  else if(over*10>6*L||v>=160||(work&&over*10>4*L)) level='ban';
+  else if(over*10>3*L) level='clip';
+  let total=fine;
+  if(level!=='fine'){parts.push(['Bidrag til Offerfonden',1000]);total+=1000;}
+  return {v,over,pct:Math.floor(over*100/L),level,total,parts};
+}
+</script>
+<script>
+const $=id=>document.getElementById(id);
+const kr=n=>n.toLocaleString('da-DK')+' kr.';
+const LABEL={ok:'Ingen bøde',fine:'Bøde uden klip',clip:'Bøde og 1 klip',ban:'Betinget frakendelse',reckless:'Ubetinget frakendelse'};
+const state={speed:64,gps:false,autoLimit:null,autoRoad:null,est:false,roadName:null,wayId:null};
+
+function limit(){const s=$('limitSel').value;return s==='auto'?(state.autoLimit||50):+s;}
+function roadType(){const s=$('roadSel').value;return s==='auto'?(state.autoRoad||'andet'):s;}
+
+/* ---------- måler ---------- */
+const CX=160,CY=160,R=136;
+let gaugeKey='';
+function pt(r,deg){const a=deg*Math.PI/180;return [CX+r*Math.sin(a),CY-r*Math.cos(a)];}
+function arc(a0,a1,color){
+  if(a1-a0<0.5) return '';
+  const [x0,y0]=pt(R,a0),[x1,y1]=pt(R,a1);
+  return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A${R} ${R} 0 ${a1-a0>180?1:0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="${color}" stroke-width="5"/>`;
+}
+function gaugeMax(L){return Math.max(120,Math.ceil(L*2.1/20)*20);}
+function ang(v,max){return -135+270*Math.min(1,Math.max(0,v/max));}
+function drawGauge(L,work){
+  const key=L+'|'+work; if(key===gaugeKey) return; gaugeKey=key;
+  const max=gaugeMax(L), a=v=>ang(v,max);
+  const clipAt=L*1.3, banAt=Math.min(L*(work?1.4:1.6),160);
+  const c1=Math.min(clipAt,banAt);
+  $('zones').innerHTML=arc(a(0),a(L),'var(--ok)')+arc(a(L),a(c1),'var(--fine)')+arc(a(c1),a(banAt),'var(--clip)')+arc(a(banAt),a(max),'var(--ban)');
+  let t='';const step=max>200?40:20;
+  for(let v=0;v<=max;v+=10){
+    const major=v%step===0,[x0,y0]=pt(R-7,a(v)),[x1,y1]=pt(R-(major?20:13),a(v));
+    t+=`<line class="tick${major?' major':''}" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`;
+    if(major){
+      const col=v<=L?'var(--ink)':v<=c1?'var(--fine)':v<=banAt?'var(--clip)':'var(--ban)';
+      const [lx,ly]=pt(R-38,a(v));t+=`<text class="tlabel" fill="${col}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${v}</text>`;
+    }
+  }
+  $('ticks').innerHTML=t;
+}
+
+/* ---------- visning ---------- */
+function render(){
+  const L=limit(),road=roadType(),work=$('workChk').checked;
+  drawGauge(L,work);
+  const f=calcFine(state.speed,L,road,work);
+  $('needle').style.transform=`rotate(${ang(state.speed,gaugeMax(L))}deg)`;
+  $('num').textContent=Math.round(state.speed);
+  $('needle').style.color={ok:'var(--ok)',fine:'var(--fine)',clip:'var(--clip)'}[f.level]||'var(--ban)';
+  $('mode').textContent=state.gps?'LIVE':'DEMO';
+  $('signT').textContent=L;
+  const auto=$('limitSel').value==='auto';
+  $('signC').setAttribute('stroke-dasharray',auto&&(state.est||!state.autoLimit)?'6 3':'none');
+  $('signNote').textContent=auto?(state.autoLimit?(state.est?'skønnet':'fra vejdata'):'ukendt, 50 antaget'):'valgt manuelt';
+  const card=$('card');card.className='card'+(f.level==='ok'?'':f.level==='fine'?' fine':f.level==='clip'?' clip':' ban');
+  $('pill').textContent=LABEL[f.level];
+  if(f.level==='reckless'){
+    $('amount').textContent='Fængsel';
+    $('sub').textContent=`${f.pct} % over grænsen. Bødetaksten gælder som udgangspunkt ikke: vanvidskørsel straffes med fængsel, ubetinget frakendelse og mulig konfiskation af bilen.`;
+    $('parts').innerHTML='';
+  }else{
+    $('amount').textContent=kr(f.total);
+    $('sub').textContent=f.level==='ok'?`Du kører ${L-f.v>=0?L-f.v:0} km/t under grænsen på ${L} km/t.`:`${f.over} km/t og ${f.pct} % over grænsen på ${L} km/t.`;
+    $('parts').innerHTML=f.parts.map(p=>`<li><span>${p[0]}</span><span>${kr(p[1])}</span></li>`).join('');
+  }
+  let nx='';
+  for(let u=f.v+1;u<=f.v+140;u++){
+    const g=calcFine(u,L,road,work);
+    if(g.level!==f.level||g.total!==f.total){
+      nx=g.level==='reckless'?`Fra ${u} km/t: vanvidskørsel.`:`Fra ${u} km/t: ${kr(g.total)} · ${LABEL[g.level].toLowerCase()}.`;break;
+    }
+  }
+  $('next').textContent=nx;
+  const names={motorvej:'Motorvej',motortrafikvej:'Motortrafikvej',andet:'By- eller landevej'};
+  if(state.gps&&state.roadName){$('road').firstChild.textContent=state.roadName;$('roadSub').textContent=names[road];}
+  else if(state.gps){$('road').firstChild.textContent='Vej ikke fundet';$('roadSub').textContent=names[road]+'. Vælg selv fartgrænse, hvis den er forkert.';}
+  else{$('road').firstChild.textContent='Eksempel: '+names[road].toLowerCase();$('roadSub').textContent='Fartgrænse valgt manuelt';}
+}
+
+/* ---------- vejdata (OpenStreetMap via Overpass) ---------- */
+const DRIVE=/^(motorway|trunk|primary|secondary|tertiary)(_link)?$|^(unclassified|residential|living_street|service)$/;
+const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+let lookBusy=false,lookAt=0,lookPos=null,lookFails=0;
+function meters(a,b){const k=111320,dx=(b.lon-a.lon)*k*Math.cos(a.lat*Math.PI/180),dy=(b.lat-a.lat)*k;return Math.hypot(dx,dy);}
+function distToWay(p,geom){
+  const k=111320,c=Math.cos(p.lat*Math.PI/180);let best=1e9;
+  for(let i=0;i<geom.length-1;i++){
+    const ax=(geom[i].lon-p.lon)*k*c,ay=(geom[i].lat-p.lat)*k,bx=(geom[i+1].lon-p.lon)*k*c,by=(geom[i+1].lat-p.lat)*k;
+    const dx=bx-ax,dy=by-ay,len=dx*dx+dy*dy,t=len?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/len)):0;
+    best=Math.min(best,Math.hypot(ax+t*dx,ay+t*dy));
+  }
+  return best;
+}
+function parseLimit(tags){
+  const m=tags.maxspeed;
+  if(m){
+    if(/^\d+$/.test(m)) return [+m,false];
+    if(m==='DK:urban') return [50,false]; if(m==='DK:rural') return [80,false]; if(m==='DK:motorway') return [130,false];
+  }
+  const h=tags.highway;
+  if(h==='motorway') return [130,true];
+  if(h==='living_street') return [15,true];
+  if(h==='residential') return [50,true];
+  return [80,true];
+}
+async function lookupRoad(p){
+  if(lookBusy) return; lookBusy=true; lookAt=Date.now(); lookPos=p;
+  const q=`[out:json][timeout:8];way(around:25,${p.lat.toFixed(6)},${p.lon.toFixed(6)})[highway];out tags geom;`;
+  let data=null;
+  for(const url of ENDPOINTS){
+    try{
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});
+      if(r.ok){data=await r.json();break;}
+    }catch(e){}
+  }
+  lookBusy=false;
+  if(!data){
+    if(++lookFails>=2) note('Vejdata kan ikke hentes lige nu. Vælg selv fartgrænse og vejtype.');
+    return;
+  }
+  lookFails=0;
+  let best=null;
+  for(const w of data.elements||[]){
+    if(!w.tags||!DRIVE.test(w.tags.highway)||!w.geometry) continue;
+    let d=distToWay(p,w.geometry); if(w.id===state.wayId) d-=8;
+    if(!best||d<best.d) best={d,w};
+  }
+  if(!best){state.roadName=null;state.autoLimit=null;state.autoRoad=null;state.wayId=null;render();return;}
+  const t=best.w.tags,[lim,est]=parseLimit(t);
+  state.wayId=best.w.id; state.autoLimit=lim; state.est=est;
+  state.autoRoad=/^motorway/.test(t.highway)?'motorvej':(t.motorroad==='yes'?'motortrafikvej':'andet');
+  state.roadName=[t.name,t.ref].filter(Boolean).join(' · ')||'Vej uden navn';
+  render();
+}
+
+/* ---------- GPS ---------- */
+let lastFix=null,watchId=null;
+function setStatus(cls,text){$('dot').className='dot '+cls;$('statusText').textContent=text;}
+function note(text){$('notice').textContent=text;$('notice').hidden=!text;}
+function onFix(pos){
+  const c=pos.coords,p={lat:c.latitude,lon:c.longitude,t:pos.timestamp};
+  let kmh=null;
+  if(c.speed!=null&&c.speed>=0) kmh=c.speed*3.6;
+  else if(lastFix){const dt=(p.t-lastFix.t)/1000;if(dt>=0.5&&dt<=10&&c.accuracy<50) kmh=meters(lastFix,p)/dt*3.6;}
+  lastFix=p;
+  if(!state.gps){
+    state.gps=true;$('manualWrap').hidden=true;note('');
+    $('limitSel').value='auto';$('roadSel').value='auto';$('startBtn').hidden=true;
+  }
+  if(kmh!=null){const s=0.65*kmh+0.35*state.speed;state.speed=s<1.5?0:s;}
+  setStatus('live',`Live GPS · nøjagtighed ±${Math.round(c.accuracy)} m`);
+  const now=Date.now();
+  if(now-lookAt>4000&&(!lookPos||meters(lookPos,p)>30||now-lookAt>15000)) lookupRoad(p);
+  render();
+}
+function onErr(e){
+  if(e.code===1){
+    setStatus('err','GPS er spærret');
+    note('Positionen kan ikke læses her. Sider vist inde i Claude har ikke adgang til GPS. Læg filen på en https-adresse og åbn den i telefonens browser, så virker GPS og vejdata. Indtil da kan du prøve med skyderen.');
+  }else if(!state.gps){
+    setStatus('wait','Søger GPS-signal …');
+  }else setStatus('wait','GPS-signal tabt');
+}
+$('startBtn').addEventListener('click',()=>{
+  if(!('geolocation' in navigator)){onErr({code:1});return;}
+  setStatus('wait','Søger GPS-signal …');
+  try{
+    if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+    watchId=navigator.geolocation.watchPosition(onFix,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+  }catch(e){onErr({code:1});}
+  try{if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(()=>{});}catch(e){}
+});
+$('speedRange').addEventListener('input',e=>{if(!state.gps){state.speed=+e.target.value;render();}});
+['limitSel','roadSel','workChk'].forEach(id=>$(id).addEventListener('change',render));
+render();
+</script>
+</body>
+</html>
