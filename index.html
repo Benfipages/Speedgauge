@@ -356,7 +356,7 @@ function render(){
   if(state.gps){
     if(!cache.center) dg='Henter vejdata fra OpenStreetMap …';
     else dg=`OpenStreetMap: ${cache.ways.length} veje, hentet for ${Math.round((Date.now()-cache.at)/1000)} s siden. `+(state.wayId?`Match: ${state.hw}, ${Math.round(state.matchD)} m fra vejens midte.`:'Ingen vej inden for rækkevidde.');
-    dg+=tt.key?` TomTom: ${tt.err?'fejl, '+tt.err:'ok'}${tt.limit?', grænse '+tt.limit:', ingen grænse for vejen'}.`:' TomTom: ingen nøgle.';
+    dg+=tt.key?' TomTom ('+tt.key.length+' tegn i nøglen): '+Object.keys(tt.st).map(k=>k+' '+(tt.st[k]||'venter')).join(' · ')+(tt.limit?'. Grænse '+tt.limit+'.':'.'):' TomTom: ingen nøgle.';
   }
   $('diag').textContent=dg;
   $('card').className='card'+(f.level==='ok'?'':f.level==='fine'?' fine':f.level==='clip'?' clip':' ban');
@@ -367,7 +367,7 @@ function render(){
   if(state.gps&&nm){$('road').firstChild.textContent=nm;$('roadSub').textContent=names[road];}
   else if(state.gps){$('road').firstChild.textContent='Vej ikke fundet';$('roadSub').textContent='Tryk på skiltet i måleren for at vælge fartgrænse';}
   else{$('road').firstChild.textContent='Eksempel: '+names[road].toLowerCase();$('roadSub').textContent='Tryk på skiltet i måleren for at vælge fartgrænse';}
-  $('ttState').textContent=tt.key?(tt.err?'TomTom svarer ikke: '+tt.err+'.':'Nøglen er gemt.'):'Ingen nøgle gemt.';
+  $('ttState').textContent=tt.key?(tt.err?'TomTom afviser kaldet: '+tt.err+'.':'Nøglen er gemt.')+(tt.key.length!==32?' Nøglen er '+tt.key.length+' tegn. TomTom-nøgler er normalt 32 tegn, så tjek at hele nøglen er kopieret.':''):'Ingen nøgle gemt.';
   renderTraffic();
   drawMap(state.gps?lastFix:null);
 }
@@ -427,15 +427,25 @@ function refreshAuto(){
 
 /* ---------- TomTom: fartgrænse, trafik og kort ---------- */
 const tt={key:'',limit:null,limitAt:0,limitPos:null,limitName:null,street:'',revBusy:false,revTry:0,
-  flow:null,flowAt:0,flowBusy:false,flowTry:0,inc:[],incAt:0,incPos:null,incBusy:false,incTry:0,err:'',tileErr:false};
+  flow:null,flowAt:0,flowBusy:false,flowTry:0,inc:[],incAt:0,incPos:null,incBusy:false,incTry:0,err:'',tileErr:false,st:{'fartgrænse':'','trafik':'','hændelser':'','kort':''}};
 try{tt.key=localStorage.getItem('benfi_tt_key')||'';}catch(e){}
-async function ttJson(url){
+async function ttJson(url,svc){
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),10000);
   try{
     const r=await fetch(url,{signal:ctl.signal});
-    if(!r.ok) throw new Error(r.status===403?'nøglen blev afvist eller kvoten er brugt (HTTP 403)':'HTTP '+r.status);
-    return await r.json();
-  }catch(e){throw new Error(e.name==='AbortError'?'tidsfrist overskredet':e.message||'ingen forbindelse');}
+    if(!r.ok){
+      // Tag TomToms egen fejltekst med, så man kan se hvorfor kaldet blev afvist.
+      let why='';
+      try{const t=await r.text();let j=null;try{j=JSON.parse(t);}catch(e){}
+        why=j?(j.detailedError&&j.detailedError.message||j.errorText||j.message||j.error&&j.error.description||(typeof j.error==='string'?j.error:'')||''):t.replace(/<[^>]*>/g,' ');
+        why=String(why).replace(/\s+/g,' ').trim().slice(0,90);}catch(e){}
+      throw new Error('HTTP '+r.status+(why?' ('+why+')':''));
+    }
+    const d=await r.json();tt.st[svc]='ok';return d;
+  }catch(e){
+    const m=e.name==='AbortError'?'tidsfrist overskredet':(e.message&&/^HTTP/.test(e.message)?e.message:'ingen forbindelse');
+    tt.st[svc]=m;throw new Error(m);
+  }
   finally{clearTimeout(to);}
 }
 function ttTick(p){
@@ -449,7 +459,7 @@ async function ttLimit(p){
   tt.revBusy=true;tt.revTry=Date.now();const name=state.rawName;
   try{
     const h=state.heading!=null?`&heading=${Math.round(state.heading)}`:'';
-    const d=await ttJson(`https://api.tomtom.com/search/2/reverseGeocode/${p.lat.toFixed(6)},${p.lon.toFixed(6)}.json?key=${encodeURIComponent(tt.key)}&returnSpeedLimit=true&radius=60${h}`);
+    const d=await ttJson(`https://api.tomtom.com/search/2/reverseGeocode/${p.lat.toFixed(6)},${p.lon.toFixed(6)}.json?key=${encodeURIComponent(tt.key)}&returnSpeedLimit=true&radius=60${h}`,'fartgrænse');
     const a=d.addresses&&d.addresses[0]&&d.addresses[0].address;
     const m=a&&a.speedLimit&&String(a.speedLimit).match(/([\d.]+)\s*(KPH|MPH)/i);
     tt.limit=m?Math.round(m[2].toUpperCase()==='MPH'?m[1]*1.609344:+m[1]):null;
@@ -461,7 +471,7 @@ async function ttLimit(p){
 async function ttFlow(p){
   tt.flowBusy=true;tt.flowTry=Date.now();
   try{
-    const d=await ttJson(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/12/json?key=${encodeURIComponent(tt.key)}&point=${p.lat.toFixed(6)},${p.lon.toFixed(6)}&unit=KMPH`);
+    const d=await ttJson(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/12/json?key=${encodeURIComponent(tt.key)}&point=${p.lat.toFixed(6)},${p.lon.toFixed(6)}&unit=KMPH`,'trafik');
     const f=d.flowSegmentData;
     tt.flow=f?{cur:Math.round(+f.currentSpeed),free:Math.round(+f.freeFlowSpeed),closed:!!f.roadClosure}:null;
     tt.flowAt=Date.now();tt.err='';
@@ -474,7 +484,7 @@ async function ttInc(p){
   try{
     const bbox=[p.lon-0.12,p.lat-0.07,p.lon+0.12,p.lat+0.07].map(v=>v.toFixed(5)).join(',');
     const fields=encodeURIComponent('{incidents{type,geometry{type,coordinates},properties{iconCategory,magnitudeOfDelay,delay}}}');
-    const d=await ttJson(`https://api.tomtom.com/traffic/services/5/incidentDetails?key=${encodeURIComponent(tt.key)}&bbox=${bbox}&fields=${fields}&timeValidityFilter=present`);
+    const d=await ttJson(`https://api.tomtom.com/traffic/services/5/incidentDetails?key=${encodeURIComponent(tt.key)}&bbox=${bbox}&fields=${fields}&timeValidityFilter=present`,'hændelser');
     tt.inc=(d.incidents||[]).map(i=>{
       const g=i.geometry||{},pr=i.properties||{};
       const pts=(g.type==='Point'?[g.coordinates]:(g.coordinates||[])).filter(c=>Array.isArray(c)&&c.length>=2).map(c=>({lon:+c[0],lat:+c[1]}));
@@ -533,8 +543,8 @@ function drawMap(p){
         let img=tileEls.get(id);
         if(!img){
           img=new Image();img.className='tile';img.alt='';img.style.zIndex=layer==='b'?1:2;
-          img.onerror=()=>{if(layer==='b'){tt.tileErr=true;}img.remove();};
-          img.onload=()=>{if(layer==='b') tt.tileErr=false;};
+          img.onerror=()=>{if(layer==='b'){tt.tileErr=true;tt.st.kort='blev afvist';}img.remove();};
+          img.onload=()=>{if(layer==='b'){tt.tileErr=false;tt.st.kort='ok';}};
           img.src=layer==='b'
             ?`https://api.tomtom.com/map/1/tile/basic/night/${MZ}/${tx}/${ty}.png?key=${k}`
             :`https://api.tomtom.com/traffic/map/4/tile/flow/relative0-dark/${MZ}/${tx}/${ty}.png?key=${k}&tileSize=512&t=${bucket}`;
@@ -602,9 +612,11 @@ $('startBtn').addEventListener('click',()=>{
 /* ---------- TomTom-nøgle ---------- */
 $('ttKey').value=tt.key;
 $('ttSave').addEventListener('click',()=>{
-  tt.key=$('ttKey').value.trim();
+  // Rens indsat tekst: tag kun selve nøglen, også hvis der er indsat en hel adresse eller mellemrum.
+  let raw=$('ttKey').value;const km=raw.match(/key=([A-Za-z0-9]+)/);
+  tt.key=(km?km[1]:raw).replace(/[^A-Za-z0-9]/g,'');$('ttKey').value=tt.key;
   try{if(tt.key) localStorage.setItem('benfi_tt_key',tt.key); else localStorage.removeItem('benfi_tt_key');}catch(e){}
-  Object.assign(tt,{limit:null,limitPos:null,limitName:null,flow:null,inc:[],incPos:null,incAt:0,revTry:0,flowTry:0,incTry:0,err:'',tileErr:false});
+  Object.assign(tt,{limit:null,limitPos:null,limitName:null,flow:null,inc:[],incPos:null,incAt:0,revTry:0,flowTry:0,incTry:0,err:'',tileErr:false,st:{'fartgrænse':'','trafik':'','hændelser':'','kort':''}});
   for(const [id,img] of tileEls){img.remove();tileEls.delete(id);}
   refreshAuto();if(lastFix) ttTick(lastFix);render();
 });
